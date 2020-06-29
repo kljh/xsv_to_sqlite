@@ -22,7 +22,8 @@ def csv_to_sqlite(csv_path, sep, headers=None):
 		sql = "INSERT INTO %s VALUES ( %s )" % ( table_name, ", ".join([ "?" for h in cols]), )
 		return sql
 
-	def populate_table(headers):
+	def populate_raw_table(headers):
+		print("populate_raw_table")
 		with open(csv_path, "r") as f: 
 			
 			for i, row in enumerate(f):
@@ -50,10 +51,14 @@ def csv_to_sqlite(csv_path, sep, headers=None):
 				curs.execute(sql, row)
 		
 				#if i>250000: break
+				
 		curs.connection.commit()
+		print("Raw table created\n")
+
 	
 	def populate_compact_table():
-	
+		print("populate_compact_table")
+
 		sql = "SELECT * FROM %s LIMIT 1" % ( table_name, )
 		curs.execute( sql )
 		cols = [ desc[0] for desc in curs.description ]
@@ -79,17 +84,17 @@ def csv_to_sqlite(csv_path, sep, headers=None):
 			data = curs.fetchone()
 			integerOnly = data[0] == 0
 			
-			if integerOnly:
-				print(col, "INTEGER VALUES ONLY")
-				cols_transfo.append("CAST( %s AS INTEGER)" % ( col, ))
-				continue
-			
 			sql = "SELECT COUNT( DISTINCT %s ) FROM %s" % ( col, table_name, )
 			curs.execute( sql )
 			data = curs.fetchone()
 			nbUniqueValue = data[0]
 				
-			if nbUniqueValue < ( nbRows // 20 ):
+			if integerOnly:
+				print("-", col, "#UniqueValue", nbUniqueValue, "INTEGER VALUES ONLY")
+				cols_transfo.append("CAST( %s AS INTEGER)" % ( col, ))
+				continue
+			
+			elif nbUniqueValue < ( nbRows // 20 ):
 				sql = "SELECT DISTINCT %s FROM %s" % ( col, table_name, )
 				curs.execute( sql )
 				data = [ row[0] for row in curs.fetchall() ]
@@ -105,11 +110,11 @@ def csv_to_sqlite(csv_path, sep, headers=None):
 				curs.executemany( sql, [ ( i+1, val ) for i, val in enumerate(data) ] )
 			
 				cols_transfo.append("column_value_to_index('%s', %s) as %s" % ( col, col, col, ))
-				print(col, nbUniqueValue, data if len(data)<20 else "[...]")
+				print("-", col, "#UniqueValue", nbUniqueValue, data if len(data)<20 else "[...]")
 				
 			else:
 				cols_transfo.append("%s" % ( col, ))
-				print(col, nbUniqueValue, "TOO MANY UNIQUE VALUES")
+				print("-", col, "#UniqueValue", nbUniqueValue, "TOO MANY UNIQUE VALUES")
 		
 		curs.connection.commit()
 		
@@ -118,10 +123,10 @@ def csv_to_sqlite(csv_path, sep, headers=None):
 		curs.execute( sql )
 
 		curs.connection.commit()
-		print("Compact table created")
+		print("Compact table created\n")
 
 
-	populate_table()
+	populate_raw_table(headers)
 	
 	populate_compact_table()	
 
@@ -152,7 +157,7 @@ def print_sqlite(db_path, limit = 25):
 		print(table_name, "#rows", table_size)
 		print(table_to_text(table_data), "\n")
 	
-csv_to_sqlite("GooglePresCleanData.out", ",")
+csv_to_sqlite("GooglePresCleanData.out", ",", [ "TestSuite", "ChangeRequest", "TestStage", "TestStatus", "LaunchTime", "ExecutionTimeMs", "TestSize", "NumShards", "NumRuns", "Language" ])
 
 print_sqlite("GooglePresCleanData.out.sqlite")
 print_sqlite("GooglePresCleanData.out.compact.sqlite")
