@@ -47,7 +47,11 @@ def csv_to_sqlite(csv_path, sep, headers=None):
 					if headers == True:
 						# first row consumed as header
 						continue
-					
+		
+				# seriously ?? use semicolon everywhere except betwwen two columns !!
+				# print(i, "\n -".join([ str(i) + " " + x for i,x in enumerate(row)]))
+				# row = row[:11] + row[11].split(",") + row[12:]
+				
 				curs.execute(sql, row)
 		
 				#if i>250000: break
@@ -100,13 +104,13 @@ def csv_to_sqlite(csv_path, sep, headers=None):
 				data = [ row[0] for row in curs.fetchall() ]
 				column_value_to_index_map[col] = { val: i+1 for i, val in enumerate(data) }
 							
-				sql = "DROP TABLE IF EXISTS compact.%s_%s_id " % ( table_name, col, )
+				sql = "DROP TABLE IF EXISTS compact.%s_%s " % ( table_name, col, )
 				curs.execute( sql )
 				
-				sql = "CREATE TABLE IF NOT EXISTS compact.%s_%s_id ( id int primary key, name )" % ( table_name, col, )
+				sql = "CREATE TABLE IF NOT EXISTS compact.%s_%s ( id int primary key, %s )" % ( table_name, col, col, )
 				curs.execute( sql )
 				
-				sql = "INSERT INTO compact.%s_%s_id VALUES ( ?, ? )" % ( table_name, col, )
+				sql = "INSERT INTO compact.%s_%s VALUES ( ?, ? )" % ( table_name, col, )
 				curs.executemany( sql, [ ( i+1, val ) for i, val in enumerate(data) ] )
 			
 				cols_transfo.append("column_value_to_index('%s', %s) as %s" % ( col, col, col, ))
@@ -157,9 +161,31 @@ def print_sqlite(db_path, limit = 25):
 		print(table_name, "#rows", table_size)
 		print(table_to_text(table_data), "\n")
 	
-csv_to_sqlite("GooglePresCleanData.out", ",", [ "TestSuite", "ChangeRequest", "TestStage", "TestStatus", "LaunchTime", "ExecutionTimeMs", "TestSize", "NumShards", "NumRuns", "Language" ])
 
-print_sqlite("GooglePresCleanData.out.sqlite")
-print_sqlite("GooglePresCleanData.out.compact.sqlite")
+if __name__ == '__main__':
 
+	if False:
 		
+		csv_to_sqlite("GooglePresCleanData.out", ",", [ "TestSuite", "ChangeRequest", "TestStage", "TestStatus", "LaunchTime", "ExecutionTimeMs", "TestSize", "NumShards", "NumRuns", "Language" ])
+
+		print_sqlite("GooglePresCleanData.out.sqlite")
+		print_sqlite("GooglePresCleanData.out.compact.sqlite")
+
+
+	if True:
+
+		# JobId can be used 118308786  to connect to corresponding Build
+		# https://travis-ci.org/github/rails/rails/jobs/<JobId>
+		# Example:
+		# https://travis-ci.org/github/rails/rails/jobs/118308786
+		#
+		# This allow to find the corresponding Tardis Build (URL to access the Build use a main Job Id, not use the BuildNumber)
+		#
+		# Extend data set with Travis CI API :
+		# https://docs.travis-ci.com/api/
+		# curl https://api.travis-ci.org/repos/rails/rails/builds
+		
+		csv_to_sqlite("RailsCleanData.out", ";", [ "TestSuite", "LaunchTime", "ExecutionTimeSec", "NumRuns", "NumAssertions", "NumFailures", "NumErrors", "NumSkips", "BuildNumber", "BuildIsPullRequest", "CommitSha", "BuildState", "BuildStartTime", "BuildFinishTime", "BuildDuration", "JobId", "JobStartTime", "JobAllowFailure" ])
+
+		print_sqlite("RailsCleanData.out.sqlite")
+		print_sqlite("RailsCleanData.out.compact.sqlite")
